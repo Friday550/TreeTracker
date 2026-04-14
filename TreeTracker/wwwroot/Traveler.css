@@ -1,0 +1,108 @@
+﻿/* wwwroot/traveler.css */
+body {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background: white;
+}
+
+.traveler-page {
+    width: 100%;
+    max-width: 900px;
+    margin: 2rem auto;
+    padding: 2rem;
+}
+
+.traveler-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 3px solid #2d6a4f;
+    padding-bottom: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.traveler-title h1 {
+    font-size: 1.25rem;
+    color: #6c757d;
+    margin: 0 0 0.25rem 0;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.traveler-title h2 {
+    font-size: 2.5rem;
+    color: #2d6a4f;
+    margin: 0;
+    font-weight: 700;
+}
+
+.qr-code {
+    width: 128px;
+    height: 128px;
+}
+
+.traveler-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+    .traveler-table th {
+        background: #2d6a4f;
+        color: white;
+        padding: 0.75rem 1rem;
+        text-align: left;
+        font-weight: 600;
+    }
+
+    .traveler-table td {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid #e0e0e0;
+        color: #333;
+    }
+
+    .traveler-table tr:nth-child(even) td {
+        background: #f9f9f9;
+    }
+
+.traveler-footer {
+    margin-top: 2rem;
+    text-align: right;
+    color: #6c757d;
+    font-size: 0.8rem;
+    border-top: 1px solid #e0e0e0;
+    padding-top: 1rem;
+}
+
+/* Print button - visible on screen only */
+.no-print {
+    text-align: center;
+    padding: 1.5rem;
+}
+
+.print-btn {
+    background: #2d6a4f;
+    color: white;
+    border: none;
+    padding: 0.75rem 2rem;
+    font-size: 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+    .print-btn:hover {
+        background: #1b4332;
+    }
+
+/* Print media query - hide button when printing */
+@media print {
+    .no-print {
+        display: none;
+    }
+
+    .traveler-page {
+        margin: 0;
+        padding: 1rem;
+    }
+}

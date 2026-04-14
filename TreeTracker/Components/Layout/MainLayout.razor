@@ -1,0 +1,116 @@
+﻿@using TreeTracker.Models
+@using TreeTracker.Services
+@inject LogService LogService
+@implements IDisposable
+
+@inherits LayoutComponentBase
+
+<div class="page">
+    <div class="sidebar">
+        <NavMenu />
+    </div>
+    <main>
+        <div class="top-row px-4">
+            <a href="https://learn.microsoft.com/aspnetcore/" target="_blank">About</a>
+        </div>
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>
+
+<div id="blazor-error-ui">
+    An unhandled error has occurred.
+    <a href="" class="reload">Reload</a>
+    <a class="dismiss">🗙</a>
+</div>
+
+@* Error Notification Popup *@
+@if (showPopup && newLogs != null && newLogs.Any())
+{
+    <div class="notification-overlay" @onclick="ClosePopup">
+        <div class="notification-popup" @onclick:stopPropagation="true">
+            <div class="notification-header">
+                <h3>⚠️ Procedure Run Results</h3>
+                <button class="close-btn" @onclick="ClosePopup">✕</button>
+            </div>
+            <div class="notification-body">
+                <p class="notification-summary">
+                    A procedure run completed with <strong>@newLogs.Count() error(s)</strong>
+                    at @newLogs.Max(l => l.LoggedAt).ToString("hh:mm tt").
+                </p>
+                <table class="parts-table">
+                    <thead>
+                        <tr>
+                            <th>Shop Order</th>
+                            <th>Error Type</th>
+                            <th>Message</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var log in newLogs)
+                        {
+                            <tr>
+                                <td>@log.ShopOrderNo</td>
+                                <td><span class="error-badge @GetErrorClass(log.ErrorType)">@log.ErrorType</span></td>
+                                <td>@log.ErrorMessage</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="notification-footer">
+                <a href="/log" @onclick="ClosePopup">View Full Log</a>
+                <button class="close-popup-btn" @onclick="ClosePopup">Dismiss</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private IEnumerable<TreeTrackerLog>? newLogs;
+    private DateTime lastChecked = DateTime.Now;
+    private bool showPopup = false;
+    private Timer? timer;
+
+    protected override void OnInitialized()
+    {
+        timer = new Timer(async _ =>
+        {
+            await CheckForNewLogs();
+        }, null, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10));
+    }
+
+    private async Task CheckForNewLogs()
+    {
+        var logs = await LogService.GetNewLogsAsync(lastChecked);
+        lastChecked = DateTime.Now;
+
+        if (logs.Any())
+        {
+            newLogs = logs;
+            showPopup = true;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void ClosePopup()
+    {
+        showPopup = false;
+        newLogs = null;
+    }
+
+    private string GetErrorClass(string errorType) => errorType switch
+    {
+        "ValidationFailure" => "badge-warning",
+        "MasterNotFound" => "badge-danger",
+        "DuplicateShopOrder" => "badge-info",
+        "InvalidPartCode" => "badge-danger",
+        _ => "badge-secondary"
+    };
+
+    public void Dispose()
+    {
+        timer?.Dispose();
+    }
+}

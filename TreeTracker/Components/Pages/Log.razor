@@ -1,0 +1,79 @@
+﻿@page "/log"
+@using TreeTracker.Models
+@using TreeTracker.Services
+@inject LogService LogService
+@rendermode InteractiveServer
+
+<PageTitle>Error Log - Tree Tracker</PageTitle>
+
+<div class="header">
+    <h1>📋 Error Log</h1>
+    <p class="subtitle">History of all errors from procedure runs</p>
+</div>
+
+<div class="log-container">
+    @if (isLoading)
+    {
+        <p>Loading logs...</p>
+    }
+    else if (logs == null || !logs.Any())
+    {
+        <div class="empty">
+            <p>No errors have been logged.</p>
+        </div>
+    }
+    else
+    {
+        @foreach (var runGroup in logs.GroupBy(l => l.RunID))
+        {
+            <div class="log-run">
+                <div class="log-run-header">
+                    <span class="log-run-id">Run: @runGroup.Key</span>
+                    <span class="log-run-time">@runGroup.Max(l => l.LoggedAt).ToString("MM/dd/yyyy hh:mm tt")</span>
+                    <span class="log-run-count">@runGroup.Count() error(s)</span>
+                </div>
+                <table class="parts-table">
+                    <thead>
+                        <tr>
+                            <th>Shop Order</th>
+                            <th>Error Type</th>
+                            <th>Message</th>
+                            <th>Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var log in runGroup)
+                        {
+                            <tr>
+                                <td>@log.ShopOrderNo</td>
+                                <td><span class="error-badge @GetErrorClass(log.ErrorType)">@log.ErrorType</span></td>
+                                <td>@log.ErrorMessage</td>
+                                <td>@log.LoggedAt.ToString("hh:mm:ss tt")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private IEnumerable<TreeTrackerLog>? logs;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        logs = await LogService.GetAllLogsAsync();
+        isLoading = false;
+    }
+
+    private string GetErrorClass(string errorType) => errorType switch
+    {
+        "ValidationFailure" => "badge-warning",
+        "MasterNotFound" => "badge-danger",
+        "DuplicateShopOrder" => "badge-info",
+        "InvalidPartCode" => "badge-danger",
+        _ => "badge-secondary"
+    };
+}

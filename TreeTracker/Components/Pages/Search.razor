@@ -1,0 +1,149 @@
+﻿@page "/search"
+@using TreeTracker.Models
+@using TreeTracker.Services
+@inject TreeService TreeService
+@rendermode InteractiveServer
+
+<PageTitle>Search - Tree Tracker</PageTitle>
+
+<div class="header">
+    <h1>🔍 Search Shop Order</h1>
+    <p class="subtitle">Enter a shop order number to find which tree it is on</p>
+</div>
+
+<div class="search-container">
+    <div class="search-bar">
+        <input class="search-input"
+               type="text"
+               placeholder="Enter shop order number..."
+               @bind="searchQuery"
+               @bind:event="oninput"
+               @onkeydown="HandleKeyDown" />
+        <button class="search-btn" @onclick="RunSearch">Search</button>
+    </div>
+
+    @if (hasSearched && !isLoading && result == null)
+    {
+        <div class="search-result-empty">
+            <p>⚠️ No tree found for shop order <strong>@searchQuery</strong>.</p>
+        </div>
+    }
+
+    @if (isLoading)
+    {
+        <div class="loading">
+            <p>Searching...</p>
+        </div>
+    }
+</div>
+
+@* Detail Modal *@
+@if (selectedTreeName != null)
+{
+    <div class="tree-modal-overlay" @onclick="CloseModal">
+        <div class="tree-modal" @onclick:stopPropagation="true">
+            <div class="tree-modal-header">
+                <h2>🌲 Tree @selectedTreeName</h2>
+                <div style="display: flex; gap: 0.75rem; align-items: center;">
+                    <a class="print-traveler-btn"
+                       href="/traveler/@selectedTreeName"
+                       target="_blank">
+                        🖨️ Print Traveler
+                    </a>
+                    <button class="close-btn" @onclick="CloseModal">✕</button>
+                </div>
+            </div>
+            <div class="tree-modal-body">
+                @if (isLoadingParts)
+                {
+                    <p>Loading parts...</p>
+                }
+                else if (selectedTreeParts == null || !selectedTreeParts.Any())
+                {
+                    <p>No parts found for this tree.</p>
+                }
+                else
+                {
+                    <div class="search-result-info">
+                        <p>📍 <strong>Location:</strong> @(result?.TreeLocation ?? "N/A")</p>
+                    </div>
+                    <table class="parts-table">
+                        <thead>
+                            <tr>
+                                <th>Shop Order</th>
+                                <th>Work Order</th>
+                                <th>Tag No</th>
+                                <th>Part ID</th>
+                                <th>Project ID</th>
+                                <th>Previous Tree</th>
+                                <th>Location</th>
+                                <th>Time Added</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var part in selectedTreeParts)
+                            {
+                                <tr>
+                                    <td>@part.ShopOrderNo</td>
+                                    <td>@part.WorkOrderNo</td>
+                                    <td>@part.TagNo</td>
+                                    <td>@part.PartID</td>
+                                    <td>@part.ProjectID</td>
+                                    <td>@(part.PreviousTree ?? "N/A")</td>
+                                    <td>@(part.TreeLocation ?? "N/A")</td>
+                                    <td>@part.TimeAdded?.ToString("MM/dd/yyyy hh:mm tt")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private string searchQuery = string.Empty;
+    private TreeTrackerItem? result;
+    private IEnumerable<TreeTrackerItem>? selectedTreeParts;
+    private string? selectedTreeName = null;
+    private bool isLoading = false;
+    private bool isLoadingParts = false;
+    private bool hasSearched = false;
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await RunSearch();
+    }
+
+    private async Task RunSearch()
+    {
+        if (string.IsNullOrWhiteSpace(searchQuery)) return;
+
+        isLoading = true;
+        hasSearched = true;
+        result = null;
+        selectedTreeName = null;
+        selectedTreeParts = null;
+
+        result = await TreeService.GetTreeByShopOrderAsync(searchQuery.Trim());
+
+        if (result != null)
+        {
+            selectedTreeName = result.CurrentTree;
+            isLoadingParts = true;
+            selectedTreeParts = await TreeService.GetPartsByTreeAsync(selectedTreeName!);
+            isLoadingParts = false;
+        }
+
+        isLoading = false;
+    }
+
+    private void CloseModal()
+    {
+        selectedTreeName = null;
+        selectedTreeParts = null;
+        result = null;
+        hasSearched = false;
+    }
+}

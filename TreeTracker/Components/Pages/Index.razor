@@ -1,0 +1,155 @@
+﻿@page "/"
+@using TreeTracker.Models
+@using TreeTracker.Services
+@inject TreeService TreeService
+
+<PageTitle>Tree Tracker</PageTitle>
+
+<div class="header">
+    <h1>🌲 Plant Tree Tracker</h1>
+    <p class="subtitle">Select a tree to view its parts</p>
+</div>
+
+@* Location Tabs *@
+<div class="tab-bar">
+    @foreach (var location in TreeService.Locations)
+    {
+        <button class="tab-btn @(activeLocation == location ? "active" : "")"
+                @onclick="async () => await SwitchLocation(location)">
+            @location
+        </button>
+    }
+</div>
+
+@* Tree Grid for Active Location *@
+<div class="tab-content">
+    @if (isLoading)
+    {
+        <div class="loading">
+            <p>Loading trees...</p>
+        </div>
+    }
+    else if (treeNames == null || !treeNames.Any())
+    {
+        <div class="empty">
+            <p>No trees currently at @activeLocation.</p>
+        </div>
+    }
+    else
+    {
+        <div class="tree-grid">
+            @foreach (var treeName in treeNames)
+            {
+                <div class="tree-card" @onclick="async () => await SelectTree(treeName)">
+                    <div class="tree-icon">🌲</div>
+                    <div class="tree-info">
+                        <h3>@treeName</h3>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@* Detail Modal *@
+@if (selectedTreeName != null)
+{
+    <div class="tree-modal-overlay" @onclick="CloseModal">
+        <div class="tree-modal" @onclick:stopPropagation="true">
+            <div class="tree-modal-header">
+                <h2>🌲 Tree @selectedTreeName</h2>
+                <div style="display: flex; gap: 0.75rem; align-items: center;">
+                    <a class="print-traveler-btn"
+                       href="/traveler/@selectedTreeName"
+                       target="_blank">
+                        🖨️ Print Traveler
+                    </a>
+                    <button class="close-btn" @onclick="CloseModal">✕</button>
+                </div>
+            </div>
+            <div class="tree-modal-body">
+                @if (isLoadingParts)
+                {
+                    <p>Loading parts...</p>
+                }
+                else if (selectedTreeParts == null || !selectedTreeParts.Any())
+                {
+                    <p>No parts found for this tree.</p>
+                }
+                else
+                {
+                    <table class="parts-table">
+                        <thead>
+                            <tr>
+                                <th>Shop Order</th>
+                                <th>Work Order</th>
+                                <th>Tag No</th>
+                                <th>Part ID</th>
+                                <th>Project ID</th>
+                                <th>Previous Tree</th>
+                                <th>Location</th>
+                                <th>Time Added</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var part in selectedTreeParts)
+                            {
+                                <tr>
+                                    <td>@part.ShopOrderNo</td>
+                                    <td>@part.WorkOrderNo</td>
+                                    <td>@part.TagNo</td>
+                                    <td>@part.PartID</td>
+                                    <td>@part.ProjectID</td>
+                                    <td>@(part.PreviousTree ?? "N/A")</td>
+                                    <td>@(part.TreeLocation ?? "N/A")</td>
+                                    <td>@part.TimeAdded?.ToString("MM/dd/yyyy hh:mm tt")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private IEnumerable<string>? treeNames;
+    private IEnumerable<TreeTrackerItem>? selectedTreeParts;
+    private string? selectedTreeName = null;
+    private string activeLocation = TreeService.Locations[0];
+    private bool isLoading = true;
+    private bool isLoadingParts = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTreesForLocation(activeLocation);
+    }
+
+    private async Task SwitchLocation(string location)
+    {
+        activeLocation = location;
+        await LoadTreesForLocation(location);
+    }
+
+    private async Task LoadTreesForLocation(string location)
+    {
+        isLoading = true;
+        treeNames = await TreeService.GetTreeNamesByLocationAsync(location);
+        isLoading = false;
+    }
+
+    private async Task SelectTree(string treeName)
+    {
+        selectedTreeName = treeName;
+        isLoadingParts = true;
+        selectedTreeParts = await TreeService.GetPartsByTreeAsync(treeName);
+        isLoadingParts = false;
+    }
+
+    private void CloseModal()
+    {
+        selectedTreeName = null;
+        selectedTreeParts = null;
+    }
+}
