@@ -114,6 +114,9 @@
 }
 
 @code {
+    [SupplyParameterFromQuery(Name = "location")]
+    public string? LocationParam { get; set; }
+
     private IEnumerable<string>? treeNames;
     private IEnumerable<TreeTrackerItem>? selectedTreeParts;
     private string? selectedTreeName = null;
@@ -123,6 +126,9 @@
 
     protected override async Task OnInitializedAsync()
     {
+        if (!string.IsNullOrEmpty(LocationParam) && TreeService.Locations.Contains(LocationParam))
+            activeLocation = LocationParam;
+
         await LoadTreesForLocation(activeLocation);
     }
 

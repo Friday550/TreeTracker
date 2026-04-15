@@ -1,0 +1,104 @@
+﻿@page "/dashboard"
+@using TreeTracker.Models
+@using TreeTracker.Services
+@inject TreeService TreeService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>Dashboard - Tree Tracker</PageTitle>
+
+<div class="header">
+    <h1>📊 Plant Dashboard</h1>
+    <p class="subtitle">Live snapshot of trees and shop orders across all locations</p>
+</div>
+
+@if (isLoading)
+{
+    <div class="loading">
+        <p>Loading dashboard...</p>
+    </div>
+}
+else
+{
+    <div class="dashboard-summary">
+        <div class="summary-card">
+            <span class="summary-number">@totalTrees</span>
+            <span class="summary-label">Total Trees</span>
+        </div>
+        <div class="summary-card">
+            <span class="summary-number">@totalShopOrders</span>
+            <span class="summary-label">Total Shop Orders</span>
+        </div>
+        <div class="summary-card">
+            <span class="summary-number">@activeLocations</span>
+            <span class="summary-label">Active Locations</span>
+        </div>
+    </div>
+
+    <div class="dashboard-grid">
+        @foreach (var loc in summaries!)
+        {
+            <div class="dashboard-card @(loc.TreeCount > 0 ? "active" : "empty")"
+                 @onclick="() => NavigateToLocation(loc.Location)">
+                <div class="dashboard-card-header">
+                    <span class="dashboard-location">📍 @loc.Location</span>
+                    @if (loc.TreeCount > 0)
+                    {
+                        <span class="active-badge">Active</span>
+                    }
+                    else
+                    {
+                        <span class="empty-badge">Empty</span>
+                    }
+                </div>
+                <div class="dashboard-card-body">
+                    <div class="dashboard-stat">
+                        <span class="stat-number">@loc.TreeCount</span>
+                        <span class="stat-label">🌲 Trees</span>
+                    </div>
+                    <div class="dashboard-divider"></div>
+                    <div class="dashboard-stat">
+                        <span class="stat-number">@loc.ShopOrderCount</span>
+                        <span class="stat-label">📋 Shop Orders</span>
+                    </div>
+                </div>
+                <div class="dashboard-card-footer">
+                    <span>Click to view →</span>
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="dashboard-updated">
+        Last updated: @lastUpdated.ToString("MM/dd/yyyy hh:mm:ss tt")
+        <button class="refresh-btn" @onclick="LoadDashboard">🔄 Refresh</button>
+    </div>
+}
+
+@code {
+    private IEnumerable<LocationSummary>? summaries;
+    private bool isLoading = true;
+    private DateTime lastUpdated;
+    private int totalTrees => summaries?.Sum(s => s.TreeCount) ?? 0;
+    private int totalShopOrders => summaries?.Sum(s => s.ShopOrderCount) ?? 0;
+    private int activeLocations => summaries?.Count(s => s.TreeCount > 0) ?? 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDashboard();
+    }
+
+    private async Task LoadDashboard()
+    {
+        isLoading = true;
+        summaries = await TreeService.GetLocationSummaryAsync();
+        lastUpdated = DateTime.Now;
+        isLoading = false;
+    }
+
+    private void NavigateToLocation(string location)
+    {
+        var encoded = Uri.EscapeDataString(location);
+        Navigation.NavigateTo($"/?location={encoded}");
+    }
+}

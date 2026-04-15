@@ -54,5 +54,28 @@ namespace TreeTracker.Services
                 new { ShopOrderNo = shopOrderNo }
             );
         }
+        public async Task<IEnumerable<LocationSummary>> GetLocationSummaryAsync()
+        {
+            using var connection = new SqlConnection(_connectionString);
+
+            var results = new List<LocationSummary>();
+
+            foreach (var location in Locations)
+            {
+                var summary = await connection.QueryFirstOrDefaultAsync<LocationSummary>(
+                    @"SELECT 
+                @Location AS Location,
+                COUNT(DISTINCT CurrentTree) AS TreeCount,
+                COUNT(ShopOrderNo) AS ShopOrderCount
+              FROM dbo.TreeTracker
+              WHERE TreeLocation = @Location",
+                    new { Location = location }
+                );
+
+                results.Add(summary ?? new LocationSummary { Location = location });
+            }
+
+            return results;
+        }
     }
 }

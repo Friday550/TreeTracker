@@ -2,8 +2,8 @@
 @layout PrintLayout
 @using TreeTracker.Models
 @using TreeTracker.Services
+@using QRCoder
 @inject TreeService TreeService
-@inject IJSRuntime JS
 @rendermode InteractiveServer
 
 <PageTitle>Traveler - @TreeName</PageTitle>
@@ -26,7 +26,13 @@ else
                 <h1>Tree Traveler</h1>
                 <h2>@TreeName</h2>
             </div>
-            <div id="qrcode" class="qr-code"></div>
+            <div class="qr-section">
+                @if (!string.IsNullOrEmpty(qrCodeBase64))
+                {
+                    <img src="data:image/png;base64,@qrCodeBase64"
+                         width="128" height="128" alt="QR Code" />
+                }
+            </div>
         </div>
 
         <table class="traveler-table">
@@ -57,11 +63,10 @@ else
             <p>Printed: @DateTime.Now.ToString("MM/dd/yyyy hh:mm tt")</p>
         </div>
     </div>
+
     <div class="no-print">
         <button class="print-btn" onclick="window.print()">🖨️ Print</button>
-        @* <button @onclick="TestQR">Test QR</button> *@
     </div>
-
 }
 
 @code {
@@ -69,25 +74,22 @@ else
     public string TreeName { get; set; } = string.Empty;
 
     private IEnumerable<TreeTrackerItem>? parts;
+    private string qrCodeBase64 = string.Empty;
     private bool isLoading = true;
-
-    // private async Task TestQR()
-    // {
-    //     await JS.InvokeVoidAsync("generateQRCode", TreeName);
-    // }
 
     protected override async Task OnInitializedAsync()
     {
         parts = await TreeService.GetPartsByTreeAsync(TreeName);
+        qrCodeBase64 = GenerateQRCode(TreeName);
         isLoading = false;
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    private string GenerateQRCode(string text)
     {
-        if (firstRender && parts != null && parts.Any())
-        {
-            await Task.Delay(1500);
-            await JS.InvokeVoidAsync("generateQRCode", TreeName);
-        }
+        using var qrGenerator = new QRCodeGenerator();
+        using var qrData = qrGenerator.CreateQrCode(text, QRCodeGenerator.ECCLevel.H);
+        using var qrCode = new PngByteQRCode(qrData);
+        var qrBytes = qrCode.GetGraphic(4);
+        return Convert.ToBase64String(qrBytes);
     }
 }
