@@ -1,0 +1,75 @@
+﻿@page "/manuallog"
+@using TreeTracker.Models
+@using TreeTracker.Services
+@inject ManualLogService ManualLogService
+@rendermode InteractiveServer
+
+<PageTitle>Manual Log - Tree Tracker</PageTitle>
+
+<div class="header">
+    <img src="images/VertivLogo.png"
+         alt="Vertiv Logo"
+         style="height: 100px; width: 100px; object-fit: contain; position: absolute; top: 1rem; right: 1rem;" />
+    <h1>📋 Manual Action Log</h1>
+    <p class="subtitle">History of all manual tree moves and additions</p>
+</div>
+
+<div class="log-container">
+    @if (isLoading)
+    {
+        <p>Loading logs...</p>
+    }
+    else if (logs == null || !logs.Any())
+    {
+        <div class="empty">
+            <p>No manual actions have been logged yet.</p>
+        </div>
+    }
+    else
+    {
+        <table class="parts-table">
+            <thead>
+                <tr>
+                    <th>Action</th>
+                    <th>Shop Order</th>
+                    <th>Tree</th>
+                    <th>From Location</th>
+                    <th>To Location</th>
+                    <th>User ID</th>
+                    <th>Date/Time</th>
+                    <th>Notes</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var log in logs)
+                {
+                    <tr>
+                        <td>
+                            <span class="error-badge @(log.ActionType == "ADD" ? "badge-info" : "badge-warning")">
+                                @log.ActionType
+                            </span>
+                        </td>
+                        <td>@(log.ShopOrderNo ?? "N/A")</td>
+                        <td>@(log.TreeName ?? "N/A")</td>
+                        <td>@(log.FromLocation ?? "N/A")</td>
+                        <td>@(log.ToLocation ?? "N/A")</td>
+                        <td>@log.UserID</td>
+                        <td>@log.ActionAt.ToString("MM/dd/yyyy hh:mm tt")</td>
+                        <td>@(log.Notes ?? "N/A")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    private IEnumerable<ManualLog>? logs;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        logs = await ManualLogService.GetAllLogsAsync();
+        isLoading = false;
+    }
+}

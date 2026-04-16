@@ -1,0 +1,286 @@
+﻿@page "/manualadd"
+@using TreeTracker.Models
+@using TreeTracker.Services
+@inject TreeService TreeService
+@rendermode InteractiveServer
+@inject ManualLogService ManualLogService
+
+<PageTitle>Manual Add - Tree Tracker</PageTitle>
+
+<div class="header">
+    <img src="images/VertivLogo.png"
+         alt="Vertiv Logo"
+         style="height: 100px; width: 100px; object-fit: contain; position: absolute; top: 1rem; right: 1rem;" />
+    <h1>Manual Shop Order Add</h1>
+    <p class="subtitle">Manually add a shop order to a tree</p>
+</div>
+
+<div class="manual-add-container">
+
+    @* Step 1 - Enter Shop Order *@
+    <div class="step-card @(currentStep >= 1 ? "active" : "")">
+        <div class="step-header">
+            <span class="step-number">1</span>
+            <span class="step-title">Enter Shop Order Number</span>
+        </div>
+        <div class="step-body">
+            <div class="search-bar">
+                <input class="search-input"
+                       type="text"
+                       placeholder="Enter shop order number..."
+                       @bind="shopOrderNo"
+                       @bind:event="oninput"
+                       @onkeydown="HandleShopOrderKeyDown" />
+                <button class="search-btn" @onclick="LookupShopOrder" disabled="@isLookingUp">
+                    @(isLookingUp ? "Looking up..." : "Look Up")
+                </button>
+            </div>
+            @if (!string.IsNullOrEmpty(lookupError))
+            {
+                <p class="move-error">⚠️ @lookupError</p>
+            }
+        </div>
+    </div>
+
+    @* Step 2 - Verify Parts *@
+    @if (currentStep >= 2 && engravingParts != null)
+    {
+        <div class="step-card active">
+            <div class="step-header">
+                <span class="step-number">2</span>
+                <span class="step-title">Verify All Parts</span>
+                <span class="step-badge @(allChecked ? "badge-success" : "badge-warning")">
+                    @checkedCount / @engravingParts.Count() Checked
+                </span>
+            </div>
+            <div class="step-body">
+                <p class="move-current">
+                    Please verify all parts are present before continuing.
+                    <strong>All parts must be checked to proceed.</strong>
+                </p>
+                <table class="parts-table">
+                    <thead>
+                        <tr>
+                            <th>✓</th>
+                            <th>Phase</th>
+                            <th>Set ID</th>
+                            <th>Sub Part ID</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var part in engravingParts)
+                        {
+                            <tr class="@(part.IsChecked ? "row-checked" : "")">
+                                <td>
+                                    <input type="checkbox"
+                                           class="part-checkbox"
+                                           checked="@part.IsChecked"
+                                           @onchange="() => ToggleCheck(part)" />
+                                </td>
+                                <td>@part.Phase</td>
+                                <td>@part.SetID</td>
+                                <td>@part.SubPartID</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                @if (allChecked)
+                {
+                    <div class="all-checked-banner">
+                        ✅ All parts verified! You can proceed to the next step.
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    @* Step 3 - Select Tree and Enter User ID *@
+    @if (currentStep >= 3)
+    {
+        <div class="step-card active">
+            <div class="step-header">
+                <span class="step-number">3</span>
+                <span class="step-title">Select Tree & Enter User ID</span>
+            </div>
+            <div class="step-body">
+                <div class="add-form">
+                    <div class="form-group">
+                        <label class="move-label">Select Tree:</label>
+                        <select class="move-select" @bind="selectedTree">
+                            <option value="">-- Select a tree --</option>
+                            @foreach (var tree in availableTrees ?? Enumerable.Empty<string>())
+                            {
+                                <option value="@tree">@tree</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="move-label">User ID (4 digits):</label>
+                        <input class="search-input"
+                               type="text"
+                               maxlength="4"
+                               placeholder="Enter user ID..."
+                               @bind="userId"
+                               @bind:event="oninput" />
+                        @if (!string.IsNullOrEmpty(userId) && userId.Length != 4)
+                        {
+                            <p class="field-hint">User ID must be entered.</p>
+                        }
+                    </div>
+                </div>
+                @if (!string.IsNullOrEmpty(submitError))
+                {
+                    <p class="move-error">⚠️ @submitError</p>
+                }
+                <div class="move-dialog-footer">
+                    <button class="search-btn"
+                            @onclick="SubmitManualAdd"
+                            disabled="@(!CanSubmit || isSubmitting)">
+                        @(isSubmitting ? "Adding..." : "✔ Add to TreeTracker")
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+
+</div>
+
+@* Success Modal *@
+@if (showSuccess)
+{
+    <div class="tree-modal-overlay" @onclick="Reset">
+        <div class="tree-modal" style="max-width: 450px;" @onclick:stopPropagation="true">
+            <div class="tree-modal-header">
+                <h2>✅ Success</h2>
+            </div>
+            <div class="tree-modal-body" style="text-align: center; padding: 2rem;">
+                <p style="font-size: 1.1rem;">
+                    Shop order <strong>@shopOrderNo</strong> has been successfully added to tree <strong>@selectedTree</strong>.
+                </p>
+                <p style="color: #6c757d; font-size: 0.9rem;">Added by User ID: @userId</p>
+                <button class="search-btn" style="margin-top: 1rem;" @onclick="Reset">
+                    Add Another
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private string shopOrderNo = string.Empty;
+    private string selectedTree = string.Empty;
+    private string userId = string.Empty;
+    private int currentStep = 1;
+    private bool isLookingUp = false;
+    private bool isSubmitting = false;
+    private bool showSuccess = false;
+    private string lookupError = string.Empty;
+    private string submitError = string.Empty;
+
+    private IEnumerable<EngravingPart>? engravingParts;
+    private IEnumerable<string>? availableTrees;
+
+    private int checkedCount => engravingParts?.Count(p => p.IsChecked) ?? 0;
+    private bool allChecked => engravingParts != null && engravingParts.Any() && engravingParts.All(p => p.IsChecked);
+    private bool CanSubmit => allChecked &&
+                              !string.IsNullOrEmpty(selectedTree) &&
+                              userId.Length >= 4 &&
+                              userId.All(char.IsDigit);
+
+    private async Task HandleShopOrderKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await LookupShopOrder();
+    }
+
+    private async Task LookupShopOrder()
+    {
+        if (string.IsNullOrWhiteSpace(shopOrderNo))
+        {
+            lookupError = "Please enter a shop order number.";
+            return;
+        }
+
+        isLookingUp = true;
+        lookupError = string.Empty;
+        engravingParts = null;
+        currentStep = 1;
+
+        // Check if shop order already exists in TreeTracker
+        var existing = await TreeService.GetTreeByShopOrderAsync(shopOrderNo.Trim());
+        if (existing != null)
+        {
+            lookupError = $"Shop order {shopOrderNo} is already on tree {existing.CurrentTree} at {existing.TreeLocation}.";
+            isLookingUp = false;
+            return;
+        }
+
+        // Check if shop order exists in prod.Master
+        var master = await TreeService.GetMasterRecordAsync(shopOrderNo.Trim());
+        if (master == null)
+        {
+            lookupError = $"Shop order {shopOrderNo} was not found in prod.Master. It cannot be added.";
+            isLookingUp = false;
+            return;
+        }
+
+        var parts = await TreeService.GetEngravingPartsAsync(shopOrderNo.Trim());
+
+        if (parts == null || !parts.Any())
+        {
+            lookupError = $"No parts found for shop order {shopOrderNo} in the Engraving Log.";
+            isLookingUp = false;
+            return;
+        }
+
+        engravingParts = parts.ToList();
+        availableTrees = await TreeService.GetAllTreeNamesAsync();
+        currentStep = 2;
+        isLookingUp = false;
+    }
+
+    private void ToggleCheck(EngravingPart part)
+    {
+        part.IsChecked = !part.IsChecked;
+
+        // Unlock step 3 once all parts are checked
+        if (allChecked && currentStep == 2)
+            currentStep = 3;
+        else if (!allChecked && currentStep == 3)
+            currentStep = 2;
+    }
+
+    private async Task SubmitManualAdd()
+    {
+        if (!CanSubmit) return;
+
+        isSubmitting = true;
+        submitError = string.Empty;
+
+        var success = await TreeService.ManuallyAddShopOrderAsync(shopOrderNo.Trim(), selectedTree, userId);
+
+        if (!success)
+        {
+            submitError = $"Could not add shop order {shopOrderNo}. It may already exist in TreeTracker or was not found in prod.Master.";
+            isSubmitting = false;
+            return;
+        }
+
+        await ManualLogService.LogAddAsync(shopOrderNo.Trim(), selectedTree, userId);
+
+        isSubmitting = false;
+        showSuccess = true;
+    }
+
+    private void Reset()
+    {
+        shopOrderNo = string.Empty;
+        selectedTree = string.Empty;
+        userId = string.Empty;
+        currentStep = 1;
+        engravingParts = null;
+        availableTrees = null;
+        lookupError = string.Empty;
+        submitError = string.Empty;
+        showSuccess = false;
+    }
+}

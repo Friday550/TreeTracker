@@ -2,11 +2,15 @@
 @using TreeTracker.Models
 @using TreeTracker.Services
 @inject TreeService TreeService
+@inject ManualLogService ManualLogService
 
 <PageTitle>Tree Tracker</PageTitle>
 
 <div class="header">
-    <h1>🌲 Plant Tree Tracker</h1>
+    <img src="images/VertivLogo.png"
+         alt="Vertiv Logo"
+         style="height: 100px; width: 100px; object-fit: contain; position: absolute; top: 1rem; right: 1rem;" />
+    <h1>Vertiv Tree Tracker</h1>
     <p class="subtitle">Select a tree to view its parts</p>
 </div>
 
@@ -59,6 +63,7 @@
             <div class="tree-modal-header">
                 <h2>🌲 Tree @selectedTreeName</h2>
                 <div style="display: flex; gap: 0.75rem; align-items: center;">
+                    <button class="move-tree-btn" @onclick="OpenMoveDialog">📦 Move Tree</button>
                     <a class="print-traveler-btn"
                        href="/traveler/@selectedTreeName"
                        target="_blank">
@@ -67,6 +72,63 @@
                     <button class="close-btn" @onclick="CloseModal">✕</button>
                 </div>
             </div>
+            @* Move Confirmation Dialog *@
+            @if (showMoveDialog)
+            {
+                <div class="tree-modal-overlay" @onclick="CloseMoveDialog">
+                    <div class="tree-modal move-dialog" @onclick:stopPropagation="true">
+                        <div class="tree-modal-header">
+                            <h2>📦 Move Tree @selectedTreeName</h2>
+                            <button class="close-btn" @onclick="CloseMoveDialog">✕</button>
+                        </div>
+                        <div class="tree-modal-body">
+                            <p class="move-current">
+                                Currently at: <strong>@(selectedTreeParts?.FirstOrDefault()?.TreeLocation ?? "Unknown")</strong>
+                            </p>
+                            <div class="move-form">
+                                <div class="form-group">
+                                    <label class="move-label">Select new location:</label>
+                                    <select class="move-select" @bind="selectedNewLocation">
+                                        <option value="">-- Select a location --</option>
+                                        @foreach (var loc in TreeService.Locations
+                                                                        .Where(l => l != selectedTreeParts?.FirstOrDefault()?.TreeLocation))
+                                        {
+                                            <option value="@loc">@loc</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="move-label">User ID:</label>
+                                    <input class="search-input"
+                                           type="text"
+                                           placeholder="Enter your user ID..."
+                                           @bind="moveUserId"
+                                           @bind:event="oninput" />
+                                </div>
+                            </div>
+                            @if (!string.IsNullOrEmpty(moveError))
+                            {
+                                <p class="move-error">⚠️ @moveError</p>
+                            }
+                        </div>
+                        <div class="move-dialog-footer">
+                            <button class="close-popup-btn secondary" @onclick="CloseMoveDialog">Cancel</button>
+                            <button class="close-popup-btn" @onclick="ConfirmMove"
+                                    disabled="@(isMoving || string.IsNullOrWhiteSpace(moveUserId) || string.IsNullOrWhiteSpace(selectedNewLocation))">
+                                @(isMoving ? "Moving..." : "✔ Confirm Move")
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            @* Move Success Toast *@
+            @if (showMoveSuccess)
+            {
+                <div class="move-toast">
+                    ✅ Tree @lastMovedTree successfully moved to @lastMovedLocation!
+                </div>
+            }
             <div class="tree-modal-body">
                 @if (isLoadingParts)
                 {
@@ -124,6 +186,16 @@
     private bool isLoading = true;
     private bool isLoadingParts = false;
 
+    // Move dialog
+    private bool showMoveDialog = false;
+    private string selectedNewLocation = string.Empty;
+    private string moveError = string.Empty;
+    private bool isMoving = false;
+    private bool showMoveSuccess = false;
+    private string lastMovedTree = string.Empty;
+    private string lastMovedLocation = string.Empty;
+    private string moveUserId = string.Empty;
+
     protected override async Task OnInitializedAsync()
     {
         if (!string.IsNullOrEmpty(LocationParam) && TreeService.Locations.Contains(LocationParam))
@@ -157,5 +229,56 @@
     {
         selectedTreeName = null;
         selectedTreeParts = null;
+    }
+
+    private void OpenMoveDialog()
+    {
+        selectedNewLocation = string.Empty;
+        moveError = string.Empty;
+        moveUserId = string.Empty;
+        showMoveDialog = true;
+    }
+
+    private void CloseMoveDialog()
+    {
+        showMoveDialog = false;
+        moveError = string.Empty;
+    }
+
+    private async Task ConfirmMove()
+    {
+        if (string.IsNullOrEmpty(selectedNewLocation))
+        {
+            moveError = "Please select a location.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(moveUserId))
+        {
+            moveError = "Please enter your user ID.";
+            return;
+        }
+
+        isMoving = true;
+        moveError = string.Empty;
+
+        var currentLocation = selectedTreeParts?.FirstOrDefault()?.TreeLocation ?? string.Empty;
+
+        await TreeService.MoveTreeAsync(selectedTreeName!, selectedNewLocation, selectedTreeName!);
+        await ManualLogService.LogMoveAsync(selectedTreeName!, currentLocation, selectedNewLocation, moveUserId);
+
+        lastMovedTree = selectedTreeName!;
+        lastMovedLocation = selectedNewLocation;
+
+        showMoveDialog = false;
+        CloseModal();
+        await LoadTreesForLocation(activeLocation);
+
+        isMoving = false;
+        showMoveSuccess = true;
+
+        await Task.Delay(3000);
+        showMoveSuccess = false;
+        StateHasChanged();
     }
 }

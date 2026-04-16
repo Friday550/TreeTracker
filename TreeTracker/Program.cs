@@ -11,6 +11,7 @@ builder.Services.AddRazorComponents()
 builder.Services.AddScoped<TreeService>();
 builder.Services.AddScoped<TreeService>();
 builder.Services.AddScoped<LogService>();
+builder.Services.AddScoped<ManualLogService>();
 
 var app = builder.Build();
 
