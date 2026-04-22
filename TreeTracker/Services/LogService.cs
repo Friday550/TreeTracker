@@ -7,30 +7,48 @@ namespace TreeTracker.Services
     public class LogService
     {
         private readonly string _connectionString;
+        private readonly ILogger<LogService> _logger;
 
-        public LogService(IConfiguration configuration)
+        public LogService(IConfiguration configuration, ILogger<LogService> logger)
         {
             _connectionString = configuration.GetConnectionString("DefaultConnection")
                 ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+            _logger = logger;
         }
 
-        // Get any new log entries since the last check
-        public async Task<IEnumerable<TreeTrackerLog>> GetNewLogsAsync(DateTime since)
+        public async Task<ServiceResult<IEnumerable<TreeTrackerLog>>> GetNewLogsAsync(DateTime since)
         {
-            using var connection = new SqlConnection(_connectionString);
-            return await connection.QueryAsync<TreeTrackerLog>(
-                "SELECT * FROM ERPPBG.dbo.TreeTrackerLog WHERE LoggedAt > @Since ORDER BY LoggedAt DESC",
-                new { Since = since }
-            );
+            try
+            {
+                using var connection = new SqlConnection(_connectionString);
+                var result = await connection.QueryAsync<TreeTrackerLog>(
+                    "SELECT * FROM dbo.TreeTrackerLog WHERE LoggedAt > @Since ORDER BY LoggedAt DESC",
+                    new { Since = since }
+                );
+                return ServiceResult<IEnumerable<TreeTrackerLog>>.Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching new logs since {Since}", since);
+                return ServiceResult<IEnumerable<TreeTrackerLog>>.Fail("Unable to check for new errors.");
+            }
         }
 
-        // Get all logs grouped by RunID for the log page
-        public async Task<IEnumerable<TreeTrackerLog>> GetAllLogsAsync()
+        public async Task<ServiceResult<IEnumerable<TreeTrackerLog>>> GetAllLogsAsync()
         {
-            using var connection = new SqlConnection(_connectionString);
-            return await connection.QueryAsync<TreeTrackerLog>(
-                "SELECT * FROM ERPPBG.dbo.TreeTrackerLog ORDER BY LoggedAt DESC"
-            );
+            try
+            {
+                using var connection = new SqlConnection(_connectionString);
+                var result = await connection.QueryAsync<TreeTrackerLog>(
+                    "SELECT * FROM dbo.TreeTrackerLog ORDER BY LoggedAt DESC"
+                );
+                return ServiceResult<IEnumerable<TreeTrackerLog>>.Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching all logs");
+                return ServiceResult<IEnumerable<TreeTrackerLog>>.Fail("Unable to load error log.");
+            }
         }
     }
 }

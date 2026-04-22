@@ -14,10 +14,15 @@
 {
     <p>Loading...</p>
 }
+@if (!string.IsNullOrEmpty(pageError))
+{
+    <p class="move-error">⚠️ @pageError</p>
+}
 else if (parts == null || !parts.Any())
 {
     <p>No parts found for tree @TreeName.</p>
 }
+
 else
 {
     <div class="traveler-page">
@@ -77,10 +82,16 @@ else
     private IEnumerable<TreeTrackerItem>? parts;
     private string qrCodeBase64 = string.Empty;
     private bool isLoading = true;
+    private string pageError = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
-        parts = await TreeService.GetPartsByTreeAsync(TreeName);
+        var result = await TreeService.GetPartsByTreeAsync(TreeName);
+        if (result.Success)
+            parts = result.Data;
+        else
+            pageError = result.ErrorMessage!;
+
         qrCodeBase64 = GenerateQRCode(TreeName);
         isLoading = false;
     }

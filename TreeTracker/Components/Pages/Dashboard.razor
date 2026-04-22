@@ -11,6 +11,10 @@
     <h1>📊 Plant Dashboard</h1>
     <p class="subtitle">Live snapshot of trees and shop orders across all locations</p>
 </div>
+@if (!string.IsNullOrEmpty(pageError))
+{
+    <div class="page-error">⚠️ @pageError</div>
+}
 
 @if (isLoading)
 {
@@ -79,6 +83,7 @@ else
     private IEnumerable<LocationSummary>? summaries;
     private bool isLoading = true;
     private DateTime lastUpdated;
+    private string pageError = string.Empty;
     private int totalTrees => summaries?.Sum(s => s.TreeCount) ?? 0;
     private int totalShopOrders => summaries?.Sum(s => s.ShopOrderCount) ?? 0;
     private int activeLocations => summaries?.Count(s => s.TreeCount > 0) ?? 0;
@@ -91,7 +96,12 @@ else
     private async Task LoadDashboard()
     {
         isLoading = true;
-        summaries = await TreeService.GetLocationSummaryAsync();
+        pageError = string.Empty;
+        var result = await TreeService.GetLocationSummaryAsync();
+        if (result.Success)
+            summaries = result.Data;
+        else
+            pageError = result.ErrorMessage!;
         lastUpdated = DateTime.Now;
         isLoading = false;
     }

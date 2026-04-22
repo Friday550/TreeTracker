@@ -12,7 +12,12 @@
          style="height: 100px; width: 100px; object-fit: contain; position: absolute; top: 1rem; right: 1rem;" />
     <h1>📋 Manual Action Log</h1>
     <p class="subtitle">History of all manual tree moves and additions</p>
+    @if (!string.IsNullOrEmpty(pageError))
+    {
+        <div class="page-error">⚠️ @pageError</div>
+    }
 </div>
+
 
 <div class="log-container">
     @if (isLoading)
@@ -66,10 +71,15 @@
 @code {
     private IEnumerable<ManualLog>? logs;
     private bool isLoading = true;
+    private string pageError = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
-        logs = await ManualLogService.GetAllLogsAsync();
+        var result = await ManualLogService.GetAllLogsAsync();
+        if (result.Success)
+            logs = result.Data;
+        else
+            pageError = result.ErrorMessage!;
         isLoading = false;
     }
 }

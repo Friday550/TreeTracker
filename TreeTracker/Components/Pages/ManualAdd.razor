@@ -206,34 +206,60 @@
         currentStep = 1;
 
         // Check if shop order already exists in TreeTracker
-        var existing = await TreeService.GetTreeByShopOrderAsync(shopOrderNo.Trim());
-        if (existing != null)
+        var existingResult = await TreeService.GetTreeByShopOrderAsync(shopOrderNo.Trim());
+        if (!existingResult.Success)
         {
-            lookupError = $"Shop order {shopOrderNo} is already on tree {existing.CurrentTree} at {existing.TreeLocation}.";
+            lookupError = existingResult.ErrorMessage!;
+            isLookingUp = false;
+            return;
+        }
+
+        if (existingResult.Data != null)
+        {
+            lookupError = $"Shop order {shopOrderNo} is already on tree {existingResult.Data.CurrentTree} at {existingResult.Data.TreeLocation}.";
             isLookingUp = false;
             return;
         }
 
         // Check if shop order exists in prod.Master
-        var master = await TreeService.GetMasterRecordAsync(shopOrderNo.Trim());
-        if (master == null)
+        var masterResult = await TreeService.GetMasterRecordAsync(shopOrderNo.Trim());
+        if (!masterResult.Success)
+        {
+            lookupError = masterResult.ErrorMessage!;
+            isLookingUp = false;
+            return;
+        }
+
+        if (masterResult.Data == null)
         {
             lookupError = $"Shop order {shopOrderNo} was not found in prod.Master. It cannot be added.";
             isLookingUp = false;
             return;
         }
 
-        var parts = await TreeService.GetEngravingPartsAsync(shopOrderNo.Trim());
+        // Get engraving parts
+        var partsResult = await TreeService.GetEngravingPartsAsync(shopOrderNo.Trim());
+        if (!partsResult.Success)
+        {
+            lookupError = partsResult.ErrorMessage!;
+            isLookingUp = false;
+            return;
+        }
 
-        if (parts == null || !parts.Any())
+        if (partsResult.Data == null || !partsResult.Data.Any())
         {
             lookupError = $"No parts found for shop order {shopOrderNo} in the Engraving Log.";
             isLookingUp = false;
             return;
         }
 
-        engravingParts = parts.ToList();
-        availableTrees = await TreeService.GetAllTreeNamesAsync();
+        engravingParts = partsResult.Data.ToList();
+
+        // Get available trees
+        var treesResult = await TreeService.GetAllTreeNamesAsync();
+        if (treesResult.Success)
+            availableTrees = treesResult.Data;
+
         currentStep = 2;
         isLookingUp = false;
     }
@@ -256,16 +282,19 @@
         isSubmitting = true;
         submitError = string.Empty;
 
-        var success = await TreeService.ManuallyAddShopOrderAsync(shopOrderNo.Trim(), selectedTree, userId);
+        var result = await TreeService.ManuallyAddShopOrderAsync(shopOrderNo.Trim(), selectedTree, userId);
 
-        if (!success)
+        if (!result.Success)
         {
-            submitError = $"Could not add shop order {shopOrderNo}. It may already exist in TreeTracker or was not found in prod.Master.";
+            submitError = result.ErrorMessage!;
+            Console.WriteLine(result.ErrorMessage!);
             isSubmitting = false;
             return;
         }
 
-        await ManualLogService.LogAddAsync(shopOrderNo.Trim(), selectedTree, userId);
+        var logResult = await ManualLogService.LogAddAsync(shopOrderNo.Trim(), selectedTree, userId);
+        if (!logResult.Success)
+            submitError = logResult.ErrorMessage!; // Non-fatal
 
         isSubmitting = false;
         showSuccess = true;

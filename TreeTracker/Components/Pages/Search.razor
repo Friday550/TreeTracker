@@ -21,6 +21,10 @@
                @onkeydown="HandleKeyDown" />
         <button class="search-btn" @onclick="RunSearch">Search</button>
     </div>
+    @if (!string.IsNullOrEmpty(searchError))
+    {
+        <div class="page-error">⚠️ @searchError</div>
+    }
 
     @if (hasSearched && !isLoading && result == null)
     {
@@ -79,6 +83,7 @@
                                 <th>Location</th>
                                 <th>Time Added</th>
                             </tr>
+
                         </thead>
                         <tbody>
                             @foreach (var part in selectedTreeParts)
@@ -110,6 +115,7 @@
     private bool isLoading = false;
     private bool isLoadingParts = false;
     private bool hasSearched = false;
+    private string searchError = string.Empty;
 
     private async Task HandleKeyDown(KeyboardEventArgs e)
     {
@@ -126,13 +132,26 @@
         selectedTreeName = null;
         selectedTreeParts = null;
 
-        result = await TreeService.GetTreeByShopOrderAsync(searchQuery.Trim());
+        var searchResult = await TreeService.GetTreeByShopOrderAsync(searchQuery.Trim());
+
+        if (!searchResult.Success)
+        {
+            searchError = searchResult.ErrorMessage!;
+            isLoading = false;
+            return;
+        }
+
+        result = searchResult.Data;
 
         if (result != null)
         {
             selectedTreeName = result.CurrentTree;
             isLoadingParts = true;
-            selectedTreeParts = await TreeService.GetPartsByTreeAsync(selectedTreeName!);
+            var partsResult = await TreeService.GetPartsByTreeAsync(selectedTreeName!);
+            if (partsResult.Success)
+                selectedTreeParts = partsResult.Data;
+            else
+                searchError = partsResult.ErrorMessage!;
             isLoadingParts = false;
         }
 

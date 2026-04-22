@@ -814,6 +814,15 @@ html, body {
     color: #2d6a4f;
     font-weight: 600;
 }
+.page-error {
+    margin: 1rem 2rem;
+    padding: 0.75rem 1rem;
+    background: #f8d7da;
+    border: 1px solid #f5c2c7;
+    border-radius: 8px;
+    color: #842029;
+    font-weight: 600;
+}
 
 /* Blazor defaults */
 .blazor-error-boundary {

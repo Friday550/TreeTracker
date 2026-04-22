@@ -80,12 +80,12 @@
 
     private async Task CheckForNewLogs()
     {
-        var logs = await LogService.GetNewLogsAsync(lastChecked);
+        var result = await LogService.GetNewLogsAsync(lastChecked);
         lastChecked = DateTime.Now;
 
-        if (logs.Any())
+        if (result.Success && result.Data != null && result.Data.Any())
         {
-            newLogs = logs;
+            newLogs = result.Data;
             showPopup = true;
             await InvokeAsync(StateHasChanged);
         }
